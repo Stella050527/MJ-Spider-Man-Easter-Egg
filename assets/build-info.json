@@ -1,0 +1,22 @@
+{
+  "maskThreshold": 2,
+  "padding": 24,
+  "effects": [
+    {
+      "id": "hang",
+      "file": "spiderman-hang.webm",
+      "x": 178,
+      "y": 0,
+      "width": 638,
+      "height": 1612
+    },
+    {
+      "id": "pose",
+      "file": "spiderman-pose.webm",
+      "x": 0,
+      "y": 0,
+      "width": 1080,
+      "height": 1594
+    }
+  ]
+}

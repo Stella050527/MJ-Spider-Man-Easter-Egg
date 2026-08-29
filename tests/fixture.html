@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MJ Easter Egg Test</title>
+  <style>
+    body { margin: 0; min-height: 150vh; font: 16px/1.5 Georgia, serif; background: #f4f7f5; color: #14231c; }
+    main { width: min(760px, calc(100% - 32px)); margin: 48px auto; }
+    input, textarea, [contenteditable] { box-sizing: border-box; width: 100%; margin: 8px 0 24px; padding: 12px; border: 1px solid #60766b; background: white; font: inherit; }
+    textarea { min-height: 110px; }
+    iframe { width: 100%; height: 150px; border: 1px solid #60766b; background: white; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>MJ extension fixture</h1>
+    <label for="search">Search input</label>
+    <form id="search-form"><input id="search" type="search"><button id="search-button" type="submit">Search</button></form>
+    <label for="navigation-search">Navigation search</label>
+    <form action="/tests/landing.html" method="get">
+      <input id="navigation-search" name="query" type="search">
+    </form>
+    <label for="notes">Textarea</label>
+    <textarea id="notes"></textarea>
+    <button id="send-button" type="button" aria-label="发送消息">发送</button>
+    <div id="custom-publish" class="reply-box-send" tabindex="0"><span>发布</span></div>
+    <div id="mystery-action" style="cursor: pointer"><span>确定</span></div>
+    <p id="send-count">sends: 0</p>
+    <div id="editor" contenteditable="true" aria-label="Content editable"></div>
+    <iframe id="frame" srcdoc="<!doctype html><html><body><textarea id='frame-notes' style='width:90%;height:90px'></textarea></body></html>"></iframe>
+    <p id="form-count">submits: 0</p>
+  </main>
+  <script>
+    let submits = 0;
+    let sends = 0;
+    document.querySelector("#search-form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      document.querySelector("#form-count").textContent = `submits: ${++submits}`;
+    });
+    document.querySelector("#send-button").addEventListener("click", () => {
+      document.querySelector("#notes").value = "";
+      document.querySelector("#send-count").textContent = `sends: ${++sends}`;
+    });
+    document.querySelector("#custom-publish").addEventListener("click", () => {
+      document.querySelector("#notes").value = "";
+      document.querySelector("#send-count").textContent = `sends: ${++sends}`;
+    });
+    document.querySelector("#mystery-action").addEventListener("click", () => {
+      document.querySelector("#notes").value = "";
+      document.querySelector("#send-count").textContent = `sends: ${++sends}`;
+    });
+  </script>
+</body>
+</html>
