@@ -2,7 +2,6 @@
 
 一个适用于 Chrome 和 Edge 的 Manifest V3 浏览器扩展。在普通网页中输入 `mj` 并提交、从浏览器地址栏搜索 `mj`，或按下可配置的 `Ctrl+按键`，会以各 50% 的独立概率播放“倒挂”或“耍帅”透明蜘蛛侠彩蛋。
 
-项目正式名称为 **MJ Spider-Man Easter Egg**，推荐的 GitHub 仓库名和 npm 风格标识为 `mj-spider-man-easter-egg`。
 
 ## 触发方式
 
