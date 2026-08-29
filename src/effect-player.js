@@ -29,7 +29,7 @@
     return EFFECTS[randomValue < 0.5 ? 0 : 1];
   }
 
-  function createOverlay(effect) {
+  function createOverlay(effect, forceMuted) {
     const host = document.createElement("div");
     host.id = HOST_ID;
     host.dataset.effectId = effect.id;
@@ -80,7 +80,7 @@
     video.playsInline = true;
     video.preload = "auto";
     video.disablePictureInPicture = true;
-    video.muted = !ENABLE_EFFECT_AUDIO;
+    video.muted = forceMuted || !ENABLE_EFFECT_AUDIO;
     video.src = effect.src;
     video.style.setProperty(
       "--mj-center-x",
@@ -92,13 +92,13 @@
     return { host, video };
   }
 
-  function play({ effectId, ignoreCooldown = false } = {}) {
+  function play({ effectId, ignoreCooldown = false, forceMuted = false } = {}) {
     if (activePlayback || document.getElementById(HOST_ID)) return false;
     if (!ignoreCooldown && performance.now() < cooldownUntil) return false;
     if (!document.documentElement) return false;
 
     const effect = EFFECTS.find((candidate) => candidate.id === effectId) || chooseEffect();
-    const { host, video } = createOverlay(effect);
+    const { host, video } = createOverlay(effect, forceMuted);
     let finished = false;
     let timeoutId;
 

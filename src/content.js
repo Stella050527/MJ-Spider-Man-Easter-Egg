@@ -65,8 +65,12 @@
     rememberEditable(api.detector.findEditable(event.composedPath()));
   }
 
-  function playWhenDocumentReady(reason = "text", effectId) {
-    const options = { effectId, ignoreCooldown: reason === "chord" };
+  function playWhenDocumentReady(reason = "text", effectId, externalAudio = false) {
+    const options = {
+      effectId,
+      ignoreCooldown: reason === "chord",
+      forceMuted: externalAudio,
+    };
     if (document.documentElement) {
       return api.player.play(options);
     }
@@ -171,6 +175,16 @@
     return api.detector.hasMjToken(text);
   }
 
+  function shouldTriggerFromForm(form) {
+    if (!lastEditableContext || lastEditableContext.triggered) return false;
+    if (performance.now() - lastEditableContext.timestamp > EDITABLE_CONTEXT_TTL_MS) return false;
+    const editable = lastEditableContext.editable;
+    if (!editable?.isConnected || !form.contains(editable)) return false;
+    const currentText = api.detector.textBeforeCaret(editable);
+    const text = typeof currentText === "string" ? currentText : lastEditableContext.text;
+    return api.detector.hasMjToken(text);
+  }
+
   document.addEventListener("compositionstart", () => {
     isComposing = true;
   }, listenerOptions);
@@ -183,7 +197,7 @@
   document.addEventListener("input", rememberEditableFromEvent, listenerOptions);
   document.addEventListener("keyup", rememberEditableFromEvent, listenerOptions);
 
-  document.addEventListener("keydown", (event) => {
+  window.addEventListener("keydown", (event) => {
     handleChordKeyDown(event);
     rememberEditableFromEvent(event);
     if (!api.detector.shouldTrigger(event, isComposing)) return;
@@ -191,8 +205,13 @@
     if (requestEffect()) markEditableConsumed();
   }, listenerOptions);
 
-  document.addEventListener("keyup", handleChordKeyUp, listenerOptions);
+  window.addEventListener("keyup", handleChordKeyUp, listenerOptions);
   window.addEventListener("blur", resetChordKeys, listenerOptions);
+
+  document.addEventListener("submit", (event) => {
+    if (!(event.target instanceof HTMLFormElement)) return;
+    if (shouldTriggerFromForm(event.target) && requestEffect()) markEditableConsumed();
+  }, listenerOptions);
 
   document.addEventListener("pointerdown", (event) => {
     if (event.button !== 0) return;
@@ -221,14 +240,18 @@
         sendResponse({ ready: true });
         return;
       }
-      if (message?.type === "MJ_PLAY") playWhenDocumentReady(message.reason, message.effectId);
+      if (message?.type === "MJ_PLAY") {
+        playWhenDocumentReady(message.reason, message.effectId, message.externalAudio);
+      }
     };
     api.runtimeMessageListener = runtimeMessageListener;
     chrome.runtime.onMessage.addListener(runtimeMessageListener);
 
     try {
       chrome.runtime.sendMessage({ type: "MJ_TOP_READY" }).then((response) => {
-        if (response?.play) playWhenDocumentReady(response.reason, response.effectId);
+        if (response?.play) {
+          playWhenDocumentReady(response.reason, response.effectId, response.externalAudio);
+        }
       }).catch(() => {});
     } catch {
       // The active tab reinjection path will replace this invalid context.

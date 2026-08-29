@@ -20,6 +20,12 @@
     return null;
   }
 
+  function activeEditable(documentNode) {
+    let active = documentNode.activeElement;
+    while (active?.shadowRoot?.activeElement) active = active.shadowRoot.activeElement;
+    return active ? findEditable([active]) : null;
+  }
+
   function findSendControl(path) {
     for (const [index, node] of path.entries()) {
       if (!(node instanceof Element)) continue;
@@ -109,14 +115,16 @@
   }
 
   function shouldTrigger(event, isComposing) {
-    if (event.key !== "Enter" || event.isComposing || isComposing || event.keyCode === 229) return false;
-    const editable = findEditable(event.composedPath());
+    const isEnter = event.key === "Enter" || event.code === "Enter" || event.keyCode === 13;
+    if (!isEnter || event.isComposing || isComposing || event.keyCode === 229) return false;
+    const editable = findEditable(event.composedPath()) || activeEditable(event.view?.document || document);
     if (!editable) return false;
     const text = textBeforeCaret(editable);
     return typeof text === "string" && hasMjToken(text);
   }
 
   globalThis.__mjEasterEgg.detector = {
+    activeEditable,
     findActionControl,
     findEditable,
     findSendControl,

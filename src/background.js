@@ -1,4 +1,4 @@
-importScripts("navigation-detector.js");
+importScripts("config.js", "navigation-detector.js");
 
 const CONTENT_SCRIPT_FILES = [
   "src/config.js",
@@ -10,9 +10,59 @@ const NAVIGATION_START_WINDOW_MS = 2500;
 const NAVIGATION_COMPLETE_TIMEOUT_MS = 30000;
 const pendingNavigation = new Map();
 const tabNavigationActivity = new Map();
+const OFFSCREEN_DOCUMENT_PATH = "src/offscreen.html";
+let creatingOffscreenDocument = null;
 
 function chooseEffectId() {
   return Math.random() < 0.5 ? "hang" : "pose";
+}
+
+async function ensureOffscreenDocument() {
+  const offscreenUrl = chrome.runtime.getURL(OFFSCREEN_DOCUMENT_PATH);
+  if (chrome.runtime.getContexts) {
+    const contexts = await chrome.runtime.getContexts({
+      contextTypes: ["OFFSCREEN_DOCUMENT"],
+      documentUrls: [offscreenUrl],
+    });
+    if (contexts.length > 0) return;
+  } else {
+    const matchedClients = await clients.matchAll();
+    if (matchedClients.some((client) => client.url === offscreenUrl)) return;
+  }
+
+  if (!creatingOffscreenDocument) {
+    creatingOffscreenDocument = chrome.offscreen.createDocument({
+      url: OFFSCREEN_DOCUMENT_PATH,
+      reasons: ["AUDIO_PLAYBACK"],
+      justification: "Play the selected easter-egg audio after an address-bar navigation.",
+    }).finally(() => {
+      creatingOffscreenDocument = null;
+    });
+  }
+  await creatingOffscreenDocument;
+}
+
+async function playOffscreenEffectAudio(effectId) {
+  if (globalThis.__mjEasterEggConfig?.effectAudioEnabled === false) return false;
+  try {
+    await ensureOffscreenDocument();
+    const response = await chrome.runtime.sendMessage({
+      type: "MJ_PLAY_AUDIO",
+      target: "mj-offscreen-audio",
+      effectId,
+    });
+    return response?.played === true;
+  } catch {
+    return false;
+  }
+}
+
+function prepareExternalAudio(state) {
+  if (state.reason !== "omnibox") return Promise.resolve(false);
+  if (!state.externalAudioPromise) {
+    state.externalAudioPromise = playOffscreenEffectAudio(state.effectId);
+  }
+  return state.externalAudioPromise;
 }
 
 async function injectIntoExistingTabs() {
@@ -88,15 +138,23 @@ function armNavigationReplay(tabId, sourceDocumentId, reason, effectId, navigati
   return state;
 }
 
-function deliverPendingNavigation(tabId, state) {
+async function deliverPendingNavigation(tabId, state) {
   if (pendingNavigation.get(tabId) !== state || Date.now() > state.expiresAt) {
     pendingNavigation.delete(tabId);
     return;
   }
 
+  const externalAudio = await prepareExternalAudio(state);
+  if (pendingNavigation.get(tabId) !== state) return;
+
   chrome.tabs.sendMessage(
     tabId,
-    { type: "MJ_PLAY", reason: state.reason, effectId: state.effectId },
+    {
+      type: "MJ_PLAY",
+      reason: state.reason,
+      effectId: state.effectId,
+      externalAudio,
+    },
     { frameId: 0 },
   ).then(() => {
     if (pendingNavigation.get(tabId) === state) pendingNavigation.delete(tabId);
@@ -180,9 +238,26 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       ? sender.documentId !== state.sourceDocumentId
       : state.phase === "navigating");
     const shouldPlay = Boolean(isNewDocument && Date.now() <= state.expiresAt);
-    if (isNewDocument) pendingNavigation.delete(sender.tab.id);
-    sendResponse({ play: shouldPlay, reason: state?.reason, effectId: state?.effectId });
-    return;
+    if (!isNewDocument) {
+      sendResponse({ play: false });
+      return;
+    }
+
+    pendingNavigation.delete(sender.tab.id);
+    if (!shouldPlay || state.reason !== "omnibox") {
+      sendResponse({ play: shouldPlay, reason: state.reason, effectId: state.effectId });
+      return;
+    }
+
+    prepareExternalAudio(state).then((externalAudio) => {
+      sendResponse({
+        play: true,
+        reason: state.reason,
+        effectId: state.effectId,
+        externalAudio,
+      });
+    });
+    return true;
   }
 
   if (message?.type === "MJ_TRIGGER") handleTrigger(message, sender);

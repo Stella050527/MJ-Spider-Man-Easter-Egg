@@ -1,6 +1,6 @@
 {
   "name": "mj-spider-man-easter-egg",
-  "version": "1.3.1",
+  "version": "1.4.0",
   "private": true,
   "scripts": {
     "build:assets": "node scripts/build-assets.js",
